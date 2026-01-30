@@ -13,54 +13,83 @@ import { err, ok, type Result } from "neverthrow";
  * 7. Pipeline pattern - Worker output becomes input to next worker (data flow).
  */
 
+type Job = {
+  id: number;
+  sleep: number;
+};
+
 type WorkerSuccess = {
   id: number;
+  jobId: number;
   files: string[];
 };
 
 type WorkerError = {
   workerId: number;
+  jobId: number;
   reason: string;
 };
 
-async function worker(
-  id: number,
-  sleep: number,
-): Promise<Result<WorkerSuccess, WorkerError>> {
-  console.log(`Worker ${id} starting, will sleep for ${sleep}ms`);
+async function worker(id: number, job: Job): Promise<Result<WorkerSuccess, WorkerError>> {
+  const jobId = job.id;
+  const sleep = job.sleep;
+
+  console.log(`Worker ${id} starting ${jobId}, will sleep for ${sleep}ms`);
   await new Promise((resolve) => setTimeout(resolve, sleep));
 
   if (sleep < 200) {
     return err({
       workerId: id,
+      jobId,
       reason: "timeout too short",
     });
   }
 
   const output = await $`ls`.text();
   const files = output.trim().split("\n");
-  console.log(`Worker ${id} finished`);
-  return ok({ id, files });
+  console.log(`Worker ${id} finished ${jobId}`);
+  return ok({ id, jobId, files });
 }
 
-async function runWaitAll(length: number): Promise<void> {
-  const results = await Promise.all(
-    Array.from({ length }, (_, i) => worker(i, Math.random() * 1000)),
-  );
+function buildWorkers(length: number): Array<(job: Job) => Promise<Result<WorkerSuccess, WorkerError>>> {
+  return Array.from({ length }, (_, i) => {
+    return (job: Job) => worker(i, job);
+  });
+}
+
+function buildJobs(length: number): Array<Job> {
+  return Array.from({ length }, (_, i) => ({
+    id: i,
+    sleep: Math.random() * 1000,
+  }));
+}
+
+async function runWaitAll(): Promise<void> {
+  const countJobs = 10;
+  const countWorkers = 10;
+
+  const jobs = buildJobs(countJobs);
+  const workers = buildWorkers(countWorkers);
+
+  const promises = [];
+  for (let i = 0; i < 10; i++) {
+    promises.push(workers[i](jobs[i]));
+  }
+
+  const results = await Promise.all(promises);
 
   results.forEach((result) => {
     result.match(
       (success) =>
-        console.log(`Worker ${success.id} found ${success.files.length} files`),
+        console.log(`Worker ${success.id} with job ${success.jobId} found ${success.files.length} files`),
       (error) =>
-        console.error(`Worker ${error.workerId} failed: ${error.reason}`),
+        console.error(`Worker ${error.workerId} with job ${error.jobId} failed: ${error.reason}`),
     );
   });
 }
 
 async function main(): Promise<void> {
-  const workerCount = 10;
-  await runWaitAll(workerCount);
+  await runWaitAll();
 }
 
 if (import.meta.main) {
