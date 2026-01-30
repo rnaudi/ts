@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "lib": ["deno.ns", "deno.window"]
+  },
+  "imports": {
+    "@david/dax": "jsr:@david/dax@^0.44.2",
+    "neverthrow": "npm:neverthrow@^8.2.0"
+  }
+}
