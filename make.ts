@@ -23,6 +23,12 @@ import { err, ok, type Result } from "neverthrow";
  * The downside of `nverthrow` is similar to other libraries in other ecosystems: 
  * Typescript libraries except throws as control flow.
  * 
+ * Promises.
+ * Promises in JavaScript start immediately when created. This differs from other languages and ecosystems where async tasks
+ * must be explicitly started / polled. Depending on the model. I won't go deeper into this here. To sum it up:
+ * I personally prefer to explicitly create and start async tasks. I like structured concurrency where I can choose.
+ * And for me, that means a split between task creation and task starting. Even if it means wrapping Promises in functions.
+ * That's implementation detail, and a cost I'm willing to pay.
  */
 
 type Job = {
