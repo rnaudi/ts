@@ -13,6 +13,18 @@ import { err, ok, type Result } from "neverthrow";
  * 7. Pipeline pattern - Worker output becomes input to next worker (data flow).
  */
 
+/**
+ * Notes and references:
+ * 
+ * I've chosen the `neverthrow` library for Result types. It's nicer than some alternatives like `Effect`.
+ * - https://effect.website/docs/additional-resources/effect-vs-neverthrow/
+ * What I dislike about `Effect` is that imposes a functional programming style that has more cons than pros.
+ * Memory overhead, wrapping functions in layers, more concepts and abstractions to learn, inversion of data flow etc.
+ * The downside of `nverthrow` is similar to other libraries in other ecosystems: 
+ * Typescript libraries except throws as control flow.
+ * 
+ */
+
 type Job = {
   id: number;
   sleep: number;
