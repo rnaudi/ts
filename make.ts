@@ -36,6 +36,16 @@ import { err, ok, type Result } from "neverthrow";
  * From here we can play on all possible problems in parallelism and concurrency.
  * Infinite Jobs, Jobs grow faster than workers can process, Workers fail, Workers time out, Pools, RAM limits, Preemptive tasks etc.
  * Wow, so much fun.
+ * 
+ * Javascript and Promises.
+ * More in detail, we have a couple of design constraints and considerations:
+ * - Promises start immediately when created.
+ * - Promises cannot be "easily" cancelled.
+ * - Errors are thrown, not returned as values. 
+ * - Try/Catch semantics.
+ * - Promise.All vs Promise.AllSettled.
+ * - AbortSignal and AbortController.
+ * With these constraints in mind, we can start designing our structured concurrency patterns.
  */
 
 type Job = {
