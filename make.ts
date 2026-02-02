@@ -50,8 +50,12 @@ import { err, ok, type Result } from "neverthrow";
 
 type Job = {
   id: number;
-  sleep: number;
+  execute: () => Promise<Result<JobSuccess, JobError>>;
 };
+
+type JobSuccess = void;
+
+type JobError = string;
 
 type WorkerSuccess = {
   id: number;
@@ -59,34 +63,22 @@ type WorkerSuccess = {
   files: string[];
 };
 
-type WorkerError = {
-  workerId: number;
-  jobId: number;
-  reason: string;
-};
-
-async function worker(id: number, job: Job): Promise<Result<WorkerSuccess, WorkerError>> {
+async function worker(id: number, job: Job): Promise<WorkerSuccess> {
   const jobId = job.id;
-  const sleep = job.sleep;
 
-  console.log(`Worker ${id} starting ${jobId}, will sleep for ${sleep}ms`);
-  await new Promise((resolve) => setTimeout(resolve, sleep));
-
-  if (sleep < 200) {
-    return err({
-      workerId: id,
-      jobId,
-      reason: "timeout too short",
-    });
+  console.log(`Worker ${id} starting ${jobId}`);
+  const result = await job.execute();
+  if (result.isErr()) {
+    throw new Error(`Job ${jobId} failed in Worker ${id}: ${result.error}`);
   }
 
   const output = await $`ls`.text();
   const files = output.trim().split("\n");
   console.log(`Worker ${id} finished ${jobId}`);
-  return ok({ id, jobId, files });
+  return { id, jobId, files };
 }
 
-function buildWorkers(length: number): Array<(job: Job) => Promise<Result<WorkerSuccess, WorkerError>>> {
+function buildWorkers(length: number): Array<(job: Job) => Promise<WorkerSuccess>> {
   return Array.from({ length }, (_, i) => {
     return (job: Job) => worker(i, job);
   });
@@ -95,7 +87,14 @@ function buildWorkers(length: number): Array<(job: Job) => Promise<Result<Worker
 function buildJobs(length: number): Array<Job> {
   return Array.from({ length }, (_, i) => ({
     id: i,
-    sleep: Math.random() * 1000,
+    execute: async () => {
+      const sleep = Math.random() * 1000;
+      if (sleep < 200) {
+        return err(`sleeping ${sleep.toFixed(2)}ms < 200ms`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, sleep));
+      return ok(void 0);
+    }
   }));
 }
 
@@ -111,16 +110,15 @@ async function runWaitAll(): Promise<void> {
     promises.push(workers[i](jobs[i]));
   }
 
-  const results = await Promise.all(promises);
-
-  results.forEach((result) => {
-    result.match(
-      (success) =>
-        console.log(`Worker ${success.id} with job ${success.jobId} found ${success.files.length} files`),
-      (error) =>
-        console.error(`Worker ${error.workerId} with job ${error.jobId} failed: ${error.reason}`),
-    );
-  });
+  try {
+    const results = await Promise.all(promises);
+    for (const result of results) {
+      console.log(`Worker ${result.id} processed Job ${result.jobId} with files:`, result.files);
+    }
+  } catch (e) {
+    console.error("One or more workers failed:", e);
+    return;
+  }
 }
 
 async function main(): Promise<void> {
