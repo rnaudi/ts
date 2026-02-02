@@ -29,6 +29,13 @@ import { err, ok, type Result } from "neverthrow";
  * I personally prefer to explicitly create and start async tasks. I like structured concurrency where I can choose.
  * And for me, that means a split between task creation and task starting. Even if it means wrapping Promises in functions.
  * That's implementation detail, and a cost I'm willing to pay.
+ * 
+ * Exercise.
+ * The goal is both simple and easy to understand, I like this exercise because of that.
+ * We have jobs and workers. Each worker processes a job. A job will sleep for a random time. A job can return an error.
+ * From here we can play on all possible problems in parallelism and concurrency.
+ * Infinite Jobs, Jobs grow faster than workers can process, Workers fail, Workers time out, Pools, RAM limits, Preemptive tasks etc.
+ * Wow, so much fun.
  */
 
 type Job = {
