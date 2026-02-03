@@ -15,33 +15,33 @@ import { err, ok, type Result } from "neverthrow";
 
 /**
  * Notes and references:
- * 
+ *
  * I've chosen the `neverthrow` library for Result types. It's nicer than some alternatives like `Effect`.
  * - https://effect.website/docs/additional-resources/effect-vs-neverthrow/
  * What I dislike about `Effect` is that imposes a functional programming style that has more cons than pros.
  * Memory overhead, wrapping functions in layers, more concepts and abstractions to learn, inversion of data flow etc.
- * The downside of `nverthrow` is similar to other libraries in other ecosystems: 
+ * The downside of `nverthrow` is similar to other libraries in other ecosystems:
  * Typescript libraries except throws as control flow.
- * 
+ *
  * Promises.
  * Promises in JavaScript start immediately when created. This differs from other languages and ecosystems where async tasks
  * must be explicitly started / polled. Depending on the model. I won't go deeper into this here. To sum it up:
  * I personally prefer to explicitly create and start async tasks. I like structured concurrency where I can choose.
  * And for me, that means a split between task creation and task starting. Even if it means wrapping Promises in functions.
  * That's implementation detail, and a cost I'm willing to pay.
- * 
+ *
  * Exercise.
  * The goal is both simple and easy to understand, I like this exercise because of that.
  * We have jobs and workers. Each worker processes a job. A job will sleep for a random time. A job can return an error.
  * From here we can play on all possible problems in parallelism and concurrency.
  * Infinite Jobs, Jobs grow faster than workers can process, Workers fail, Workers time out, Pools, RAM limits, Preemptive tasks etc.
  * Wow, so much fun.
- * 
+ *
  * Javascript and Promises.
  * More in detail, we have a couple of design constraints and considerations:
  * - Promises start immediately when created.
  * - Promises cannot be "easily" cancelled.
- * - Errors are thrown, not returned as values. 
+ * - Errors are thrown, not returned as values.
  * - Try/Catch semantics.
  * - Promise.All vs Promise.AllSettled.
  * - AbortSignal and AbortController.
@@ -78,7 +78,9 @@ async function worker(id: number, job: Job): Promise<WorkerSuccess> {
   return { id, jobId, files };
 }
 
-function buildWorkers(length: number): Array<(job: Job) => Promise<WorkerSuccess>> {
+function buildWorkers(
+  length: number,
+): Array<(job: Job) => Promise<WorkerSuccess>> {
   return Array.from({ length }, (_, i) => {
     return (job: Job) => worker(i, job);
   });
@@ -94,7 +96,36 @@ function buildJobs(length: number): Array<Job> {
       }
       await new Promise((resolve) => setTimeout(resolve, sleep));
       return ok(void 0);
-    }
+    },
+  }));
+}
+
+function buildCancellableJobs(
+  signal: AbortSignal,
+  length: number,
+): Array<Job> {
+  return Array.from({ length }, (_, i) => ({
+    id: i,
+    execute: async () => {
+      if (signal.aborted) {
+        return err(`Job ${i} cancelled before start`);
+      }
+
+      const sleep = Math.random() * 1000;
+      if (sleep < 200) {
+        return err(`sleeping ${sleep.toFixed(2)}ms < 200ms`);
+      }
+
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(resolve, sleep);
+        signal.addEventListener("abort", () => {
+          clearTimeout(timeout);
+          reject(new Error(`Job ${i} cancelled during execution`));
+        });
+      });
+      return ok(void 0);
+    },
+    signal,
   }));
 }
 
@@ -113,7 +144,10 @@ async function runWaitAll(): Promise<void> {
   try {
     const results = await Promise.all(promises);
     for (const result of results) {
-      console.log(`Worker ${result.id} processed Job ${result.jobId} with files:`, result.files);
+      console.log(
+        `Worker ${result.id} processed Job ${result.jobId} with files:`,
+        result.files,
+      );
     }
   } catch (e) {
     console.error("One or more workers failed:", e);
@@ -121,8 +155,38 @@ async function runWaitAll(): Promise<void> {
   }
 }
 
+async function runFailFast(): Promise<void> {
+  const countJobs = 10;
+  const countWorkers = 10;
+
+  const controller = new AbortController();
+  const jobs = buildCancellableJobs(controller.signal, countJobs);
+  const workers = buildWorkers(countWorkers);
+
+  const promises = [];
+  for (let i = 0; i < 10; i++) {
+    promises.push(workers[i](jobs[i]));
+  }
+
+  try {
+    const results = await Promise.all(promises);
+    for (const result of results) {
+      console.log(
+        `Worker ${result.id} processed Job ${result.jobId} with files:`,
+        result.files,
+      );
+    }
+  } catch (e) {
+    console.error("One or more workers failed:", e);
+    controller.abort();
+  }
+}
+
 async function main(): Promise<void> {
+  console.log("Running Wait All pattern:");
   await runWaitAll();
+  console.log("Running Fail Fast pattern:");
+  await runFailFast();
 }
 
 if (import.meta.main) {
