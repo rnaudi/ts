@@ -181,10 +181,10 @@ async function runFailFast(): Promise<void> {
     }
   } catch {
     controller.abort();
-    
+
     const results = await Promise.allSettled(promises);
-    const failures = results.filter(r => r.status === "rejected");
-    
+    const failures = results.filter((r) => r.status === "rejected");
+
     console.error(`\n${failures.length} job(s) failed or cancelled:`);
     for (const [idx, failure] of failures.entries()) {
       console.error(`  ${idx + 1}. ${failure.reason}`);
