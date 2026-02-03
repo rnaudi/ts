@@ -116,16 +116,19 @@ function buildCancellableJobs(
         return err(`sleeping ${sleep.toFixed(2)}ms < 200ms`);
       }
 
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(resolve, sleep);
-        signal.addEventListener("abort", () => {
-          clearTimeout(timeout);
-          reject(new Error(`Job ${i} cancelled during execution`));
+      try {
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(resolve, sleep);
+          signal.addEventListener("abort", () => {
+            clearTimeout(timeout);
+            reject(new Error(`Job ${i} cancelled during execution`));
+          });
         });
-      });
-      return ok(void 0);
+        return ok(void 0);
+      } catch (e) {
+        return err(`Job ${i} aborted: ${(e as Error).message}`);
+      }
     },
-    signal,
   }));
 }
 
@@ -176,15 +179,22 @@ async function runFailFast(): Promise<void> {
         result.files,
       );
     }
-  } catch (e) {
-    console.error("One or more workers failed:", e);
+  } catch {
     controller.abort();
+    
+    const results = await Promise.allSettled(promises);
+    const failures = results.filter(r => r.status === "rejected");
+    
+    console.error(`\n${failures.length} job(s) failed or cancelled:`);
+    for (const [idx, failure] of failures.entries()) {
+      console.error(`  ${idx + 1}. ${failure.reason}`);
+    }
   }
 }
 
 async function main(): Promise<void> {
-  console.log("Running Wait All pattern:");
-  await runWaitAll();
+  // console.log("Running Wait All pattern:");
+  // await runWaitAll();
   console.log("Running Fail Fast pattern:");
   await runFailFast();
 }
