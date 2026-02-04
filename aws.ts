@@ -1,21 +1,27 @@
 import { parseArgs } from "@std/cli/parse-args";
 import $ from "@david/dax";
 
+// Constants
+const PROMPT = "osascript" as const;
+const USAGE = "Usage: --mode=<shell|server> --profile=<sa|an>" as const;
+
+// Types
 type CLI =
   | CLIShell
   | CLIServer;
 
 type Profile = "sa-dev" | "analytics-dev";
-type CLIShell = { tag: "shell"; profile: Profile };
-type CLIServer = { tag: "server"; profile: Profile };
+type CLIShell = { readonly tag: "shell"; readonly profile: Profile };
+type CLIServer = { readonly tag: "server"; readonly profile: Profile };
 
+/** Parses CLI arguments into a typed command */
 function CLIParse(args: string[]): CLI {
   const flags = parseArgs(args, {
     string: ["mode", "profile"],
   });
 
   if (!flags.mode || !flags.profile) {
-    throw new Error("Usage: --mode=<shell|server> --profile=<sa|an>");
+    throw new Error(USAGE);
   }
 
   const profile: Profile = (() => {
@@ -39,15 +45,17 @@ function CLIParse(args: string[]): CLI {
   }
 }
 
-async function runShell(cli: CLIShell) {
-  await $`aws-vault exec ${cli.profile} --prompt=osascript`;
+/** Executes aws-vault shell for the given profile */
+async function runShell(cli: CLIShell): Promise<void> {
+  await $`aws-vault exec ${cli.profile} --prompt=${PROMPT}`;
 }
 
-async function runServer(cli: CLIServer) {
-  await $`aws-vault exec ${cli.profile} --prompt=osascript --ec2-server`;
+/** Executes aws-vault with EC2 server for the given profile */
+async function runServer(cli: CLIServer): Promise<void> {
+  await $`aws-vault exec ${cli.profile} --prompt=${PROMPT} --ec2-server`;
 }
 
-async function execute(cli: CLI) {
+async function execute(cli: CLI): Promise<void> {
   switch (cli.tag) {
     case "shell":
       return await runShell(cli);
@@ -60,7 +68,7 @@ async function execute(cli: CLI) {
   }
 }
 
-async function main() {
+async function main(): Promise<void> {
   const cli = CLIParse(Deno.args);
   await execute(cli);
 }

@@ -2,7 +2,8 @@
 
 i haven't used ts in ages, structured concurrency patterns
 
-following the latest matklad blog about dax, i added a cli example with ADTs and exhaustive pattern matching, neat
+following the latest matklad blog about dax, i added a cli example with ADTs and
+exhaustive pattern matching, neat
 
 ```
 deno compile \
