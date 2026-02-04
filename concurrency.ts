@@ -20,8 +20,8 @@ import { err, ok, type Result } from "neverthrow";
  * - https://effect.website/docs/additional-resources/effect-vs-neverthrow/
  * What I dislike about `Effect` is that imposes a functional programming style that has more cons than pros.
  * Memory overhead, wrapping functions in layers, more concepts and abstractions to learn, inversion of data flow etc.
- * The downside of `nverthrow` is similar to other libraries in other ecosystems:
- * Typescript libraries except throws as control flow.
+ * The downside of `neverthrow` is similar to other libraries in other ecosystems:
+ * TypeScript libraries expect throws as control flow.
  *
  * Promises.
  * Promises in JavaScript start immediately when created. This differs from other languages and ecosystems where async tasks
@@ -49,8 +49,8 @@ import { err, ok, type Result } from "neverthrow";
  */
 
 type Job = {
-  id: number;
-  execute: () => Promise<Result<JobSuccess, JobError>>;
+  readonly id: number;
+  readonly execute: () => Promise<Result<JobSuccess, JobError>>;
 };
 
 type JobSuccess = void;
@@ -58,9 +58,9 @@ type JobSuccess = void;
 type JobError = string;
 
 type WorkerSuccess = {
-  id: number;
-  jobId: number;
-  files: string[];
+  readonly id: number;
+  readonly jobId: number;
+  readonly files: readonly string[];
 };
 
 async function worker(id: number, job: Job): Promise<WorkerSuccess> {
@@ -122,7 +122,7 @@ function buildCancellableJobs(
           signal.addEventListener("abort", () => {
             clearTimeout(timeout);
             reject(new Error(`Job ${i} cancelled during execution`));
-          });
+          }, { once: true });
         });
         return ok(void 0);
       } catch (e) {
@@ -140,7 +140,7 @@ async function runWaitAll(): Promise<void> {
   const workers = buildWorkers(countWorkers);
 
   const promises = [];
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < countJobs; i++) {
     promises.push(workers[i](jobs[i]));
   }
 
@@ -167,7 +167,7 @@ async function runFailFast(): Promise<void> {
   const workers = buildWorkers(countWorkers);
 
   const promises = [];
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < countJobs; i++) {
     promises.push(workers[i](jobs[i]));
   }
 
