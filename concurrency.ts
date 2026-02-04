@@ -192,11 +192,180 @@ async function runFailFast(): Promise<void> {
   }
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms)
+  );
+  return Promise.race([promise, timeout]);
+}
+
+async function runTimeout(): Promise<void> {
+  const countJobs = 10;
+  const countWorkers = 10;
+  const timeoutMs = 500;
+
+  const jobs = buildJobs(countJobs);
+  const workers = buildWorkers(countWorkers);
+
+  const promises = [];
+  for (let i = 0; i < countJobs; i++) {
+    promises.push(withTimeout(workers[i](jobs[i]), timeoutMs));
+  }
+
+  const results = await Promise.allSettled(promises);
+
+  const successes = results.filter((r) => r.status === "fulfilled");
+  const failures = results.filter((r) => r.status === "rejected");
+
+  console.log(`\n${successes.length} job(s) completed within ${timeoutMs}ms`);
+  if (failures.length > 0) {
+    console.error(`${failures.length} job(s) timed out or failed:`);
+    for (const [idx, failure] of failures.entries()) {
+      console.error(`  ${idx + 1}. ${failure.reason}`);
+    }
+  }
+}
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  attempts: number,
+  baseDelayMs: number = 100,
+): Promise<T> {
+  let lastError: Error | undefined;
+
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastError = e as Error;
+      if (i < attempts - 1) {
+        const delay = baseDelayMs * Math.pow(2, i);
+        console.log(`  Retry ${i + 1}/${attempts - 1} after ${delay}ms...`);
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+/**
+ * Retries a function following matklad's pattern:
+ * - Loop while action returns error, with retries as early exit
+ * - No spurious sleep after last attempt
+ * - Original error preserved and rethrown
+ * - Optional isTransientError predicate to decide if retry is worthwhile
+ * @see https://matklad.github.io/2025/08/23/retry-loop-retry.html
+ */
+async function withRetryTransient<T>(
+  fn: () => Promise<T>,
+  retryCount: number,
+  baseDelayMs: number = 100,
+  isTransientError: (e: Error) => boolean = () => true,
+): Promise<T> {
+  let retriesLeft = retryCount;
+
+  while (true) {
+    try {
+      return await fn();
+    } catch (e) {
+      const err = e as Error;
+
+      // Not transient? Don't retry, rethrow original
+      if (!isTransientError(err)) {
+        throw err;
+      }
+
+      // Out of retries? Rethrow original error
+      if (retriesLeft === 0) {
+        throw err;
+      }
+
+      retriesLeft -= 1;
+      const delay = baseDelayMs * Math.pow(2, retryCount - retriesLeft - 1);
+      console.log(`  Retry ${retryCount - retriesLeft}/${retryCount} after ${delay}ms...`);
+      await new Promise((r) => setTimeout(r, delay));
+      // No sleep after last attempt - we throw above
+    }
+  }
+}
+
+async function runRetryTransient(): Promise<void> {
+  const countJobs = 5;
+  const countWorkers = 5;
+  const maxRetries = 3;
+
+  const jobs = buildJobs(countJobs);
+  const workers = buildWorkers(countWorkers);
+
+  // Example: only retry if error message contains "sleeping" (transient)
+  const isTransient = (e: Error) => e.message.includes("sleeping");
+
+  const promises = [];
+  for (let i = 0; i < countJobs; i++) {
+    promises.push(
+      withRetryTransient(() => workers[i](jobs[i]), maxRetries, 100, isTransient)
+    );
+  }
+
+  const results = await Promise.allSettled(promises);
+
+  const successes = results.filter((r) => r.status === "fulfilled");
+  const failures = results.filter((r) => r.status === "rejected");
+
+  console.log(`\n${successes.length} job(s) succeeded (with transient retries)`);
+  if (failures.length > 0) {
+    console.error(`${failures.length} job(s) failed after ${maxRetries} attempts:`);
+    for (const [idx, failure] of failures.entries()) {
+      console.error(`  ${idx + 1}. ${failure.reason}`);
+    }
+  }
+}
+
+async function runRetry(): Promise<void> {
+  const countJobs = 5;
+  const countWorkers = 5;
+  const maxRetries = 3;
+
+  const jobs = buildJobs(countJobs);
+  const workers = buildWorkers(countWorkers);
+
+  const promises = [];
+  for (let i = 0; i < countJobs; i++) {
+    promises.push(
+      withRetry(() => workers[i](jobs[i]), maxRetries)
+    );
+  }
+
+  const results = await Promise.allSettled(promises);
+
+  const successes = results.filter((r) => r.status === "fulfilled");
+  const failures = results.filter((r) => r.status === "rejected");
+
+  console.log(`\n${successes.length} job(s) succeeded (with retries)`);
+  if (failures.length > 0) {
+    console.error(`${failures.length} job(s) failed after ${maxRetries} attempts:`);
+    for (const [idx, failure] of failures.entries()) {
+      console.error(`  ${idx + 1}. ${failure.reason}`);
+    }
+  }
+}
+
 async function main(): Promise<void> {
-  console.log("Running Wait All pattern:");
+  console.log("=== Running Wait All pattern ===");
   await runWaitAll();
-  console.log("Running Fail Fast pattern:");
+  
+  console.log("\n=== Running Fail Fast pattern ===");
   await runFailFast();
+  
+  console.log("\n=== Running Timeout pattern ===");
+  await runTimeout();
+  
+  console.log("\n=== Running Retry pattern ===");
+  await runRetry();
+  
+  console.log("\n=== Running Retry Transient pattern (matklad) ===");
+  await runRetryTransient();
 }
 
 if (import.meta.main) {
