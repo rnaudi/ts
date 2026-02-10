@@ -3,7 +3,26 @@ import $ from "@david/dax";
 
 // Constants
 const PROMPT = "osascript" as const;
-const USAGE = "Usage: --mode=<shell|server> --profile=<sa|an>" as const;
+
+const HELP = `
+my-aws - aws-vault wrapper
+
+Usage:
+  my-aws --mode=<shell|server> --profile=<sa|an>
+  my-aws --help
+
+Modes:
+  shell    Open a subshell with AWS credentials
+  server   Start an EC2 metadata credentials server
+
+Profiles:
+  sa       sa-dev
+  an       analytics-dev
+
+Examples:
+  my-aws --profile=sa --mode=shell
+  my-aws --profile=an --mode=server
+`.trim();
 
 // Types
 type CLI =
@@ -14,14 +33,34 @@ type Profile = "sa-dev" | "analytics-dev";
 type CLIShell = { readonly tag: "shell"; readonly profile: Profile };
 type CLIServer = { readonly tag: "server"; readonly profile: Profile };
 
+/** Prints a message to stderr and exits with code 1 */
+function die(message: string): never {
+  console.error(message);
+  Deno.exit(1);
+}
+
 /** Parses CLI arguments into a typed command */
 function CLIParse(args: string[]): CLI {
   const flags = parseArgs(args, {
     string: ["mode", "profile"],
+    boolean: ["help"],
   });
 
-  if (!flags.mode || !flags.profile) {
-    throw new Error(USAGE);
+  if (flags.help || args.length === 0) {
+    console.log(HELP);
+    Deno.exit(0);
+  }
+
+  if (!flags.mode && !flags.profile) {
+    die(`error: missing --mode and --profile\n\n${HELP}`);
+  }
+
+  if (!flags.mode) {
+    die(`error: missing --mode (shell or server)\n\nRun my-aws --help for usage.`);
+  }
+
+  if (!flags.profile) {
+    die(`error: missing --profile (sa or an)\n\nRun my-aws --help for usage.`);
   }
 
   const profile: Profile = (() => {
@@ -31,7 +70,7 @@ function CLIParse(args: string[]): CLI {
       case "an":
         return "analytics-dev";
       default:
-        throw new Error(`Unknown profile: ${flags.profile}, use "sa" or "an".`);
+        die(`error: unknown profile "${flags.profile}"\n\nAvailable profiles: sa (sa-dev), an (analytics-dev)`);
     }
   })();
 
@@ -41,7 +80,7 @@ function CLIParse(args: string[]): CLI {
     case "server":
       return { tag: "server", profile };
     default:
-      throw new Error(`Unknown mode: ${flags.mode}, use "shell" or "server".`);
+      die(`error: unknown mode "${flags.mode}"\n\nAvailable modes: shell, server`);
   }
 }
 
