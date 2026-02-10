@@ -109,7 +109,20 @@ async function execute(cli: CLI): Promise<void> {
 
 async function main(): Promise<void> {
   const cli = CLIParse(Deno.args);
-  await execute(cli);
+  try {
+    await execute(cli);
+  } catch (e) {
+    // dax subprocess errors: aws-vault already printed its own error to stderr,
+    // just forward the exit code
+    const err = e as Error;
+    const match = err.message?.match(/Exited with code: (\d+)/);
+    if (match) {
+      Deno.exit(Number(match[1]));
+    }
+    // Unexpected error: print and exit
+    console.error(`error: ${err.message}`);
+    Deno.exit(1);
+  }
 }
 
 if (import.meta.main) {
