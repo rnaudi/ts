@@ -39,14 +39,14 @@ From [releases](https://github.com/rnaudi/ts/releases) (macOS ARM):
 
 ```
 mkdir -p ~/bin
-curl -L -o ~/bin/my-aws https://github.com/rnaudi/ts/releases/latest/download/my-aws-darwin-arm64
-chmod +x ~/bin/my-aws
+curl -L -o ~/bin/av https://github.com/rnaudi/ts/releases/latest/download/av-darwin-arm64
+chmod +x ~/bin/av
 ```
 
 From source:
 
 ```
-deno compile --allow-run --allow-env --allow-read --output ~/bin/my-aws aws.ts
+deno compile --allow-run --allow-env --allow-read --output ~/bin/av aws.ts
 ```
 
 Add `~/bin` to your PATH if you haven't already:

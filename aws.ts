@@ -5,11 +5,11 @@ import $ from "@david/dax";
 const PROMPT = "osascript" as const;
 
 const HELP = `
-my-aws - aws-vault wrapper
+av - aws-vault wrapper
 
 Usage:
-  my-aws --mode=<shell|server> --profile=<sa|an>
-  my-aws --help
+  av --mode=<shell|server> --profile=<sa|an>
+  av --help
 
 Modes:
   shell    Open a subshell with AWS credentials
@@ -20,8 +20,8 @@ Profiles:
   an       analytics-dev
 
 Examples:
-  my-aws --profile=sa --mode=shell
-  my-aws --profile=an --mode=server
+  av --profile=sa --mode=shell
+  av --profile=an --mode=server
 `.trim();
 
 // Types
@@ -56,11 +56,11 @@ function CLIParse(args: string[]): CLI {
   }
 
   if (!flags.mode) {
-    die(`error: missing --mode (shell or server)\n\nRun my-aws --help for usage.`);
+    die(`error: missing --mode (shell or server)\n\nRun av --help for usage.`);
   }
 
   if (!flags.profile) {
-    die(`error: missing --profile (sa or an)\n\nRun my-aws --help for usage.`);
+    die(`error: missing --profile (sa or an)\n\nRun av --help for usage.`);
   }
 
   const profile: Profile = (() => {
