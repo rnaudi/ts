@@ -33,20 +33,26 @@ deno run --allow-run --allow-env --allow-read aws.ts --profile=sa --mode=server
 | `--mode` | `shell`, `server` | Subshell or EC2 metadata server |
 | `--profile` | `sa`, `an` | Aliases for `sa-dev`, `analytics-dev` |
 
-### Install as a binary
+### Install
 
-Download from [Releases](https://github.com/rnaudi/ts/releases):
-
-```
-curl -L -o my-aws https://github.com/rnaudi/ts/releases/latest/download/my-aws-darwin-arm64
-chmod +x my-aws
-mv my-aws /usr/local/bin/
-```
-
-Or compile locally:
+From [releases](https://github.com/rnaudi/ts/releases) (macOS ARM):
 
 ```
-deno compile --allow-run --allow-env --allow-read --output my-aws aws.ts
+mkdir -p ~/bin
+curl -L -o ~/bin/my-aws https://github.com/rnaudi/ts/releases/latest/download/my-aws-darwin-arm64
+chmod +x ~/bin/my-aws
+```
+
+From source:
+
+```
+deno compile --allow-run --allow-env --allow-read --output ~/bin/my-aws aws.ts
+```
+
+Add `~/bin` to your PATH if you haven't already:
+
+```
+echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc
 ```
 
 ## Dependencies
